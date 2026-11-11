@@ -32,7 +32,7 @@ We are actively looking for contributors across the stack:
 ### Building from Source
 1. Fork the repository and clone it locally:
    ```bash
-   git clone https://github.com/<your-username>/pygo.git
+   git clone https://github.com/Sarkar-Labs/pygo.git
    cd pygo
    ```
 2. Build the C++/CUDA backend and `pybind11` extensions:
