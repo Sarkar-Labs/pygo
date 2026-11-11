@@ -45,4 +45,3 @@ jobs:
           cmake --build build --parallel 2
       - name: Test Go ecosystem
         run: go test ./...
-
