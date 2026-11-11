@@ -1,0 +1,9 @@
+services:
+  pygo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    command: ["python3", "-m", "compileall", "-q", "."]

@@ -1,0 +1,29 @@
+#include "fused_1182_neg_mul_ceil.h"
+#include <stdexcept>
+#include <string>
+namespace pygo::tensor_ops {
+static void check(const Tensor& x,const Tensor& y) {
+    if (!x.defined() || !y.defined()) throw std::invalid_argument("neg_mul_ceil: undefined operand");
+    if (x.device()!=y.device()) throw std::invalid_argument("neg_mul_ceil: device mismatch");
+}
+Tensor fused_1182_neg_mul_ceil(const Tensor& x,const Tensor& y) {
+    check(x,y);
+    Tensor r=(x * y.neg()).ceil();
+    if (!r.defined()) throw std::runtime_error("neg_mul_ceil: undefined result");
+    return r;
+}
+Tensor fused_1182_neg_mul_ceil_contiguous(const Tensor& x,const Tensor& y) { return fused_1182_neg_mul_ceil(x.contiguous(),y.contiguous()); }
+Tensor fused_1182_neg_mul_ceil_cpu(const Tensor& x,const Tensor& y) { return fused_1182_neg_mul_ceil(x.cpu(),y.cpu()); }
+Tensor fused_1182_neg_mul_ceil_clone(const Tensor& x,const Tensor& y) { return fused_1182_neg_mul_ceil(x.clone(),y.clone()); }
+Tensor fused_1182_neg_mul_ceil_detached(const Tensor& x,const Tensor& y) { return fused_1182_neg_mul_ceil(x.detach(),y.detach()); }
+bool fused_1182_neg_mul_ceil_same_shape(const Tensor& x,const Tensor& y) { return x.shape()==y.shape(); }
+int64_t fused_1182_neg_mul_ceil_ndim(const Tensor& x) { return x.ndim(); }
+int64_t fused_1182_neg_mul_ceil_numel(const Tensor& x) { return x.numel(); }
+DType fused_1182_neg_mul_ceil_dtype(const Tensor& x) { return x.dtype(); }
+Device fused_1182_neg_mul_ceil_device(const Tensor& x) { return x.device(); }
+std::string fused_1182_neg_mul_ceil_shape(const Tensor& x) { return x.shape().str(); }
+const char* fused_1182_neg_mul_ceil_name() { return "neg_mul_ceil"; }
+}
+
+// Reference implementation intentionally delegates to canonical Tensor operations.
+// This ensures the fused entry point cannot silently diverge from eager semantics.

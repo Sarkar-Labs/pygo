@@ -1,0 +1,14 @@
+#pragma once
+#include "tensor.h"
+#include <string>
+namespace pygo::tensor_ops {
+Tensor fused_0542_exp_mul_relu(const Tensor&,const Tensor&);
+Tensor fused_0542_exp_mul_relu_contiguous(const Tensor&,const Tensor&);
+Tensor fused_0542_exp_mul_relu_cpu(const Tensor&,const Tensor&);
+Tensor fused_0542_exp_mul_relu_clone(const Tensor&,const Tensor&);
+Tensor fused_0542_exp_mul_relu_detached(const Tensor&,const Tensor&);
+bool fused_0542_exp_mul_relu_same_shape(const Tensor&,const Tensor&);
+int64_t fused_0542_exp_mul_relu_numel(const Tensor&);
+std::string fused_0542_exp_mul_relu_shape(const Tensor&);
+const char* fused_0542_exp_mul_relu_name();
+}

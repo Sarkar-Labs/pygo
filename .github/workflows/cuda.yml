@@ -1,0 +1,24 @@
+name: PyGo CUDA Validation
+
+on:
+  workflow_dispatch:
+
+# Configure a self-hosted runner with labels: self-hosted, cuda, nvidia.
+# The workflow intentionally does not claim CUDA validation on CPU-only GitHub-hosted runners.
+jobs:
+  nvcc:
+    runs-on: [self-hosted, cuda, nvidia]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show CUDA toolchain
+        run: |
+          nvidia-smi
+          nvcc --version
+      - name: Validate every CUDA translation unit
+        run: python3 tools/cuda/validate_cuda_sources.py --nvcc "$(command -v nvcc)"
+      - name: Configure CUDA build
+        run: cmake -S . -B build-cuda -DCMAKE_BUILD_TYPE=Release -DPYGO_ENABLE_CUDA=ON -DPYGO_BUILD_SHARED=ON -DPYGO_BUILD_TESTS=ON
+      - name: Build CUDA runtime
+        run: cmake --build build-cuda --parallel 2
+      - name: Run native tests
+        run: ctest --test-dir build-cuda --output-on-failure

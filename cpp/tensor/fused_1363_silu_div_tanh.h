@@ -1,0 +1,14 @@
+#pragma once
+#include "tensor.h"
+#include <string>
+namespace pygo::tensor_ops {
+Tensor fused_1363_silu_div_tanh(const Tensor&,const Tensor&);
+Tensor fused_1363_silu_div_tanh_contiguous(const Tensor&,const Tensor&);
+Tensor fused_1363_silu_div_tanh_cpu(const Tensor&,const Tensor&);
+Tensor fused_1363_silu_div_tanh_clone(const Tensor&,const Tensor&);
+Tensor fused_1363_silu_div_tanh_detached(const Tensor&,const Tensor&);
+bool fused_1363_silu_div_tanh_same_shape(const Tensor&,const Tensor&);
+int64_t fused_1363_silu_div_tanh_numel(const Tensor&);
+std::string fused_1363_silu_div_tanh_shape(const Tensor&);
+const char* fused_1363_silu_div_tanh_name();
+}

@@ -1,0 +1,10 @@
+PyGo 0.1.0 release verification
+CMake build: PASS
+CTest: 2/2 PASS
+CMake install/export consumer: PASS
+Go test ./...: PASS
+Python compileall: PASS
+Python tests: 62/62 PASS
+Python imports: 1164/1164 PASS
+Extended 1M+ native catalog syntax: PASS
+Zero-copy C ABI: PASS (covered by c_api_smoke)

@@ -1,0 +1,14 @@
+package tensor
+
+import "fmt"
+
+func Fused1387SiluMulSin(x, y *Tensor) (*Tensor, error) {
+	if x == nil || y == nil {
+		return nil, fmt.Errorf("silu_mul_sin: nil operand")
+	}
+	r := x.Mul(y)
+	r = r.SiLU()
+	r = r.Sin()
+	return r, nil
+}
+func Fused1387SiluMulSinName() string { return "silu_mul_sin" }

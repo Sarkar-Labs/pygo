@@ -1,0 +1,567 @@
+# PyGo 0.1.0
+
+## What is PyGo?
+
+PyGo is a native numerical and machine-learning library designed around a C++ tensor/runtime core with Python and Go user-facing ecosystems. The project combines tensor storage and dispatch, automatic differentiation, neural-network components, optimization, data utilities, serialization, inference, serving, and optional accelerator backends.
+
+The design goal is one native execution core with language bindings around it:
+
+```text
+Python API  ─┐
+             ├──> stable/native boundary ──> C++ tensor/runtime ──> CPU/CUDA kernels
+Go API      ─┘                                      |
+                                                   autograd
+                                                   NN/optim
+                                                   serialization
+                                                   inference
+```
+
+## How PyGo works
+
+A tensor carries logical shape, dtype, strides, device information, and ownership of or a reference to storage. Operations validate those properties and dispatch to an implementation appropriate for the current device and dtype. Autograd records operations that participate in differentiation and uses their backward rules when gradients are requested.
+
+The C++ layer is the execution foundation. Python and Go packages expose higher-level APIs without requiring users to reimplement tensor memory management. The C ABI is also used where a stable cross-language boundary is required.
+
+## Zero-copy data transfer
+
+PyGo supports an explicit external-buffer C ABI for compatible CPU memory. A zero-copy tensor can reference an existing buffer without copying its bytes, while a retain/release ownership callback keeps the buffer alive for as long as the tensor may use it. This is different from a normal tensor constructor that allocates or copies storage.
+
+A zero-copy interface must always define who owns the memory, when it may be released, and whether the buffer can be mutated. PyGo does not treat an arbitrary raw pointer as permanently valid.
+
+## CPU, CUDA, and TPU
+
+CPU is the baseline backend and is the backend that can be fully tested on a machine without accelerator hardware. CUDA source files use real CUDA kernels and are compiled with `nvcc` when CUDA is explicitly enabled or discovered in `AUTO` mode. TPU/XLA support is represented at the device/API level, but a real PJRT/XLA runtime is required for TPU execution and is not bundled with PyGo 0.1.0.
+
+## Release principle
+
+PyGo documentation distinguishes source availability from verified runtime support. A backend is not called production-ready merely because an enum, header, or source file exists. Release claims should be backed by compilation, runtime tests, numerical correctness tests, memory-safety checks, and hardware CI where applicable.
+
+
+# PyGo
+
+PyGo is a cross-language tensor and machine-learning runtime built around a native C++ core, with Python and Go ecosystem layers. It is designed to give applications a native execution path while keeping higher-level APIs available for research, training, inference, data processing, and deployment.
+
+**Current release:** `0.1.0`
+
+> **Release note:** PyGo contains a large native source catalog, but source-code volume is not itself a correctness guarantee. The production path is the tested CMake/C++ runtime and stable C ABI. Optional or experimental subsystems are explicitly marked as such rather than being presented as verified when they have not been tested on the target hardware.
+
+---
+
+## What is PyGo?
+
+PyGo is a layered runtime rather than a single programming-language library.
+
+At the bottom is the native execution layer. It owns the tensor representation and numerical operations that need predictable performance and explicit memory behavior. A small C ABI sits at the boundary so other languages can call the native runtime without depending on C++ name mangling or C++ class layouts.
+
+On top of that native boundary are language ecosystems:
+
+```text
+                    Applications
+                         │
+             ┌───────────┴───────────┐
+             │                       │
+        Python ecosystem         Go ecosystem
+             │                       │
+             └───────────┬───────────┘
+                         │
+                    Stable C ABI
+                         │
+              ┌──────────┴──────────┐
+              │                     │
+        Native tensor core      Native kernels
+              │                     │
+              └──────────┬──────────┘
+                         │
+                CPU / optional CUDA
+```
+
+This separation is important: Python and Go do not need to know the internal C++ object layout. They interact with a stable boundary, while the native implementation can evolve internally.
+
+---
+
+## How PyGo works
+
+A normal operation follows this general path:
+
+1. An application creates or receives a tensor.
+2. The language layer obtains a PyGo tensor handle.
+3. The handle refers to native tensor metadata and storage.
+4. An operation such as addition, multiplication, ReLU, sum, or matrix multiplication is dispatched to the native runtime.
+5. The native implementation reads the tensor storage and produces the requested result.
+6. The result is returned as another managed tensor handle.
+7. Reference counting and ownership rules determine when native resources can be released.
+
+For example:
+
+```text
+Python / Go
+    │
+    │  tensor_add(a, b)
+    ▼
+C ABI
+    │
+    │  validates handles
+    ▼
+Native tensor runtime
+    │
+    │  checks shape/storage
+    ▼
+Native operator
+    │
+    │  reads input buffers
+    ▼
+Output tensor
+```
+
+The same basic model is used for C callers. The C ABI is intentionally small so that it can be consumed from C, C++, Go, Python extension code, Rust FFI, or other languages capable of calling a C function.
+
+---
+
+## Tensor model
+
+A tensor represents an n-dimensional array of values together with metadata such as its dimensions and number of elements.
+
+The stable C API currently exposes constructors and operations including:
+
+- zeros
+- ones
+- copied float32 input
+- zero-copy float32 input
+- cloning
+- retain/release
+- read-only data access
+- mutable data access
+- number of elements
+- number of dimensions
+- dimension lookup
+- addition
+- multiplication
+- matrix multiplication
+- ReLU
+- reduction by sum
+
+The public C header is:
+
+```text
+cpp/bridge/c_api.h
+```
+
+A typical C program can therefore use the runtime without including the internal C++ implementation headers.
+
+---
+
+## Memory ownership
+
+Memory ownership is one of the most important parts of PyGo's design.
+
+There are two intentionally different ways to create a float32 tensor from an existing array.
+
+### Copying input
+
+```c
+pygo_tensor_handle* pygo_tensor_from_f32(
+    const float* data,
+    size_t count,
+    const int64_t* dims,
+    size_t ndim);
+```
+
+This API copies the input data into storage owned by PyGo. After the function returns, the caller can safely change or release its original buffer.
+
+Use this API when the caller wants simple ownership semantics.
+
+### Zero-copy input
+
+```c
+pygo_tensor_handle* pygo_tensor_from_f32_zero_copy(
+    float* data,
+    size_t count,
+    const int64_t* dims,
+    size_t ndim,
+    void* owner_context,
+    pygo_external_buffer_release_fn release_fn);
+```
+
+This API creates a tensor view over caller-owned memory without copying the elements.
+
+The ownership flow is:
+
+```text
+Caller-owned buffer
+       │
+       │ pointer
+       ▼
+PyGo tensor handle
+       │
+       │ references external storage
+       ▼
+Operations use the same buffer
+       │
+       ▼
+Last tensor handle released
+       │
+       ▼
+release_fn(owner_context)
+```
+
+The release callback is called once when the final tensor handle referencing the external buffer is released. This gives applications a place to release a malloc allocation, Go-managed bridge object, shared-memory reference, or other external resource.
+
+### Zero-copy is not the default
+
+`pygo_tensor_from_f32()` copies by design. `pygo_tensor_from_f32_zero_copy()` is explicit because zero-copy storage requires the caller to obey the lifetime and mutability contract.
+
+A zero-copy buffer must remain valid for the entire lifetime of every tensor handle that references it.
+
+---
+
+## Reference counting
+
+Tensor handles use explicit retain/release operations in the C ABI:
+
+```c
+void pygo_tensor_retain(pygo_tensor_handle* t);
+void pygo_tensor_release(pygo_tensor_handle* t);
+```
+
+The normal ownership pattern is:
+
+```text
+create → use → release
+```
+
+When a handle must be shared across components, the component retains it and later releases its reference.
+
+For external zero-copy memory, PyGo additionally keeps the external-buffer ownership information until the final reference disappears.
+
+Applications should never access a tensor's memory after its final handle has been released.
+
+---
+
+## Python ecosystem
+
+Python is the high-level user-facing ecosystem. The repository contains modules for areas such as:
+
+- tensors
+- neural-network layers
+- activations
+- autograd
+- optimizers
+- schedulers
+- datasets and transforms
+- training
+- inference
+- serialization
+- distributed execution
+- serving
+- deployment
+- profiling
+- callbacks
+- configuration
+
+The Python package can be installed from the source tree with:
+
+```bash
+python -m pip install .
+```
+
+Then:
+
+```python
+import pygo
+print(pygo.__version__)
+```
+
+The optional native Python extension is separate from the basic package import. APIs that require an unavailable optional extension should report an explicit runtime error rather than silently pretending that native execution is available.
+
+---
+
+## Go ecosystem
+
+Go provides a native-friendly application and deployment ecosystem around the same runtime concepts.
+
+The Go tree contains packages for areas including:
+
+- tensor operations
+- layers and neural networks
+- optimizers
+- schedulers
+- datasets and transforms
+- training
+- inference
+- serialization
+- serving
+- deployment
+- profiling
+- callbacks
+- device management
+- memory management
+
+The Go tensor layer can communicate with the native runtime through the C ABI. This allows Go applications to use native tensor storage and operations without duplicating the numerical implementation in Go.
+
+Build and test it with:
+
+```bash
+cd go
+go test ./...
+```
+
+The optional cgo Python bridge uses `pkg-config` to discover the installed Python development environment instead of assuming a fixed Python minor version.
+
+---
+
+## Native C++ runtime
+
+The production CMake target is:
+
+```text
+pygo_native
+```
+
+The project builds it as a shared library by default.
+
+The public C++ include directories and the C ABI are installed with the library. CMake package configuration is also generated so another CMake project can consume PyGo after installation.
+
+Example consumer configuration:
+
+```cmake
+find_package(PyGo CONFIG REQUIRED)
+target_link_libraries(my_application PRIVATE pygo::native)
+```
+
+The installed package provides the `pygo::native` target.
+
+---
+
+## Building from source
+
+### Requirements
+
+For the verified CPU build, you need:
+
+- CMake 3.20 or newer
+- a C++17 compiler
+- a working standard C/C++ toolchain
+- Python for the Python ecosystem
+- Go for the Go ecosystem
+
+### CPU production build
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+Run the native tests:
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+Install:
+
+```bash
+cmake --install build --prefix /usr/local
+```
+
+### Clean rebuild
+
+When debugging build problems, use a fresh build directory:
+
+```bash
+rm -rf build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+```
+
+A clean build is useful because CMake caches compiler checks, options, discovered libraries, and generated configuration files.
+
+---
+
+## CUDA
+
+CUDA support is optional and is enabled at configuration time:
+
+```bash
+cmake -S . -B build-cuda \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DPYGO_ENABLE_CUDA=ON
+cmake --build build-cuda --parallel
+```
+
+CUDA builds require a compatible NVIDIA CUDA toolkit and compiler. CUDA execution must be validated on a machine with supported NVIDIA hardware; a CPU-only development environment cannot certify GPU execution.
+
+The CUDA source tree is kept separate from the normal CPU production path so a CPU installation does not require CUDA.
+
+---
+
+## Native implementation organization
+
+PyGo does not use a synthetic `cpp/native_kernels/` directory. Native operations are implemented in the subsystem that owns their semantics and are connected through the normal headers, runtime, dispatch, tests, and backend implementations.
+
+Important native areas include `cpp/tensor/`, `cpp/nn/`, `cpp/autograd/`, `cpp/optim/`, `cpp/inference/`, `cpp/distributed/`, `cpp/kernels/`, and `cpp/cuda/`. This keeps an operator's implementation, API, backend behavior, and tests close to the subsystem that defines it.
+---
+
+## Repository layout
+
+Important directories include:
+
+```text
+pygo/
+├── cpp/
+│   ├── bridge/          Stable C ABI
+│   ├── tensor/          Native tensor operations
+│   ├── activations/     Activation implementations
+│   ├── initializers/    Tensor initialization
+│   ├── metrics/         Native metrics
+│   ├── kernels/         Native kernel implementations
+│   ├── cuda/            CUDA sources
+│
+├── python/              Python ecosystem
+├── go/                  Go ecosystem
+├── tests/               Native, Python, Go and integration tests
+├── docs/                Guides, API references and examples
+├── cmake/               CMake package configuration
+├── scripts/              Build, test and deployment helpers
+└── release/             Release artifacts and verification material
+```
+
+---
+
+## Typical development workflow
+
+A contributor should normally work in this order:
+
+```bash
+# 1. Configure
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+# 2. Build
+cmake --build build --parallel
+
+# 3. Run native tests
+ctest --test-dir build --output-on-failure
+
+# 4. Run Python tests
+python -m pytest
+
+# 5. Run Go tests
+cd go && go test ./...
+```
+
+For a release build, repeat the native build using `Release`, build the Python distribution, run the complete release verification suite, and publish checksums together with the release artifacts.
+
+---
+
+## Example: native C API
+
+A minimal C program can create tensors and run an operation through the stable ABI:
+
+```c
+#include "pygo/c_api.h"
+
+int main(void) {
+    int64_t shape[] = {2, 2};
+
+    pygo_tensor_handle* a = pygo_tensor_ones(shape, 2);
+    pygo_tensor_handle* b = pygo_tensor_ones(shape, 2);
+    pygo_tensor_handle* c = pygo_tensor_add(a, b);
+
+    if (!c) {
+        return 1;
+    }
+
+    pygo_tensor_release(c);
+    pygo_tensor_release(b);
+    pygo_tensor_release(a);
+    return 0;
+}
+```
+
+The important ownership rule is that every owned handle is eventually released.
+
+---
+
+## Example: zero-copy buffer
+
+The zero-copy API is appropriate when an application already owns a compatible float32 buffer and wants PyGo to operate on it directly.
+
+Conceptually:
+
+```c
+float buffer[4] = {1, 2, 3, 4};
+int64_t shape[] = {2, 2};
+
+pygo_tensor_handle* t = pygo_tensor_from_f32_zero_copy(
+    buffer,
+    4,
+    shape,
+    2,
+    owner_context,
+    release_callback);
+```
+
+No element copy is required during tensor creation. The application must keep the buffer valid until PyGo releases the final reference.
+
+---
+
+## Production philosophy
+
+PyGo follows a few important rules for production work:
+
+1. **Do not hide unsupported functionality.** Return an explicit error instead of producing an incorrect result.
+2. **Do not assume zero-copy.** Copying and zero-copy APIs are separate and have different ownership contracts.
+3. **Test the ABI, not only the implementation.** A library can compile while its public boundary is broken.
+4. **Keep optional features optional.** CUDA and the extended kernel catalog should not be required for a CPU installation.
+5. **Treat source count separately from correctness.** A large codebase still needs tests, integration, benchmarks, and hardware validation.
+6. **Prefer reproducible builds.** Release artifacts should be produced from a clean source tree and accompanied by checksums.
+
+---
+
+## Current release validation
+
+For PyGo `0.1.0`, the release verification covered:
+
+- C++17 CMake production build
+- native CTest suite
+- stable C ABI smoke tests
+- external-buffer float32 zero-copy behavior
+- zero-copy pointer identity and lifetime callback behavior
+- Go package tests
+- Python bytecode compilation
+- Python wheel creation
+- Python package import validation
+- CMake install/export consumer validation
+- C++17 syntax validation of the extended native kernel catalog
+
+CUDA execution remains hardware-dependent and must be validated on a compatible NVIDIA system before publishing a CUDA-specific binary release.
+
+---
+
+## License
+
+PyGo is released under the MIT License. See [`LICENSE`](LICENSE).
+
+## Contributing
+
+Read [`docs/guides/contributing.md`](docs/guides/contributing.md) before submitting changes. New public behavior should include tests and documentation, and changes to the stable C ABI should be treated as compatibility-sensitive changes.
+
+## Go and Markdown Verification
+
+The Go ecosystem is part of PyGo's public programming interface and is tested as a first-class supported language. The release tree is verified with `go test ./...` against the production C++ shared library. The Markdown documentation set is also checked for empty files, malformed fenced code blocks, and broken relative links.
+
+See [`GO_AND_MARKDOWN_VERIFICATION.md`](GO_AND_MARKDOWN_VERIFICATION.md) for the latest verification record.
+
+## GPU and TPU portability
+
+PyGo is designed to build cleanly on CPU-only machines. The CMake build uses `PYGO_ENABLE_CUDA=AUTO` by default: when a CUDA toolkit is available, CUDA sources are enabled; otherwise the build remains CPU-only without requiring GPU software.
+
+Use `-DPYGO_ENABLE_CUDA=ON` when CUDA is required. In that mode configuration fails clearly if `nvcc`/the CUDA toolkit is unavailable rather than silently producing a CPU build.
+
+TPU/XLA is represented in the device and API layers, but PyGo 0.1.0 does **not** bundle a TPU runtime or PJRT backend. TPU execution is therefore not advertised as working merely because an XLA device enum exists. A future TPU backend can be added behind `PYGO_ENABLE_XLA` without changing the public device model.
+
+To inspect the local accelerator toolchains:
+
+```bash
+python3 tools/build/detect_accelerators.py
+```

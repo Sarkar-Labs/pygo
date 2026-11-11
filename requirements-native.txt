@@ -1,0 +1,3 @@
+# Build dependency for PyGo's in-process CPython -> pybind11 extension.
+# The C++ library links the extension into libpygo; it is not a Python sidecar.
+pybind11>=2.13

@@ -1,0 +1,6 @@
+include README.md LICENSE NOTICE AUTHORS VERSION
+recursive-include cpp *.h *.hpp *.cpp *.cu *.cuh
+recursive-include python *.py
+recursive-include go *.go
+include go.mod go.sum
+recursive-include docs *.md

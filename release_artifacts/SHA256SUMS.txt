@@ -1,0 +1,4 @@
+92bb168051d8a809f140e8f954f6673a2db907c3e3620160d56f4caf38e0da6c  cpp/release_artifacts/VERIFICATION.txt
+a2132d140269e1fb30fc701da954f91ac18bab73575e6a1dfa5d272e2164bdb0  cpp/release_artifacts/c_api.h
+f7c56592f5350e3cae8630d52fa803d97cb5934aa2aadae1597db8a5bbffaec5  cpp/release_artifacts/libpygo.so
+b33e34f16513792b5057602c423de9ab5221d64c1f3aeb42516c3427439975f5  cpp/release_artifacts/pygo-0.1.0-py3-none-any.whl

@@ -1,0 +1,23 @@
+PyGo 0.2.0 production build verification
+
+Native:
+- CMake shared library: PASS
+- C++17 production target: PASS
+- Native smoke test: PASS
+- Stable C ABI smoke test: PASS
+- CTest: 2/2 PASS
+- CMake install/export: PASS
+
+Python:
+- Wheel: PASS
+- Installed package import: PASS
+- Public subpackage import smoke test: PASS
+- Python test suite: 62 passed
+- Python compileall: PASS
+
+CUDA:
+- Not enabled in this verification environment.
+- Build with -DPYGO_ENABLE_CUDA=ON on a CUDA toolchain for GPU validation.
+
+Extended 1M-line kernel catalog:
+- Remains opt-in and is not claimed as part of the default production build.
