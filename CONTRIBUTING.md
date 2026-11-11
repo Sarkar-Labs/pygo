@@ -1,73 +1,63 @@
-# PyGo 
+# Contributing to PyGo
 
-## What this directory is
+Thank you for your interest in contributing to **PyGo**—a deep learning framework combining a Go API, embedded CPython autograd, and high-performance C++/CUDA kernels.
 
-`.` is a **PyGo component** of PyGo. It contains the implementation units, interfaces, tests, or build assets that belong to this subsystem. This README documents the real role of the directory and how it connects to the rest of the project; it is not a claim that every optional backend is enabled on every machine.
+## Architecture Overview
 
-## How it works
+Before submitting code, please familiarize yourself with how data flows across the three layers:
 
-PyGo is organized as layers. Public APIs describe tensors and higher-level operations, native implementations perform the work, and backend-specific code handles device or runtime details. Code in this directory should therefore be used through the public interface of its parent subsystem whenever one exists, rather than by depending on private implementation details.
-
-The directory currently contains **26 files**. The file types present are: `.cfg` (1), `.code-workspace` (1), `.in` (1), `.md` (8), `.mod` (1), `.py` (1), `.sum` (1), `.toml` (1), `.txt` (4), `.yml` (1), `[no extension]` (6).
-
-## Source inventory
-
-The current directory includes:
-
-- `AUTHORS`
-- `CMakeLists.txt`
-- `Dockerfile`
-- `LICENSE`
-- `MANIFEST.in`
-- `Makefile`
-- `NOTICE`
-- `VERSION`
-- `docker-compose.yml`
-- `go.mod`
-- `go.sum`
-- `pygo.code-workspace`
-- `pyproject.toml`
-- `requirements-cuda.txt`
-- `requirements-dev.txt`
-- `requirements.txt`
-- `setup.cfg`
-- `setup.py`
-
-## Build and integration
-
-For a normal CPU development build, configure the repository from its root:
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPYGO_ENABLE_CUDA=AUTO
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
+```text
+Go API → CGo Bridge → CPython (Embedded) → pybind11 → CUDA / AVX-512 Kernels
 ```
 
-If this directory is optional, CMake only compiles it when its corresponding feature and toolchain are available. A successful CPU build must not be interpreted as proof that an accelerator implementation has been compiled.
+- **Zero-Copy Shared Memory:** Tensors live in shared memory across Go, Python, and C++. Avoid unnecessary memory allocations or copies across language boundaries.
+- **Boundary Overhead:** Pay close attention to CGo call overhead when designing new Go-to-Python tensor operations.
 
-## Using the component
+## Areas Where We Need Help
 
-Prefer the stable PyGo public API exposed by the parent package. Keep ownership, dtype, shape, device, and error handling at the public boundary. Do not pass borrowed raw pointers across a subsystem boundary unless the API explicitly documents their lifetime.
+We are actively looking for contributors across the stack:
+1. **Go & CGo Engineers:** Optimizing the CGo bridge, reducing tensor boundary overhead, and building idiomatic Go APIs with goroutine-based dynamic batching.
+2. **Python Engineers:** Expanding the autograd engine, model zoo (LLaMA-3, GPT-2, BERT, ViT, Whisper), and distributed trainers (FSDP, DPO, SFT).
+3. **C++ / CUDA Developers:** Writing and optimizing low-level kernels, Flash Attention v2, and GPTQ/AWQ quantization routines.
 
-When this directory contains kernels or low-level helpers, callers are expected to validate inputs before dispatch and to propagate backend errors rather than silently falling back to an unrelated implementation.
+## Development Setup
 
-## Testing
+### Prerequisites
+- **Go:** 1.22+ (with `CGO_ENABLED=1`)
+- **Python:** 3.10+ (with development headers `python3-dev` installed)
+- **C++ Compiler:** GCC 11+ or Clang 14+ supporting C++17/C++20 and AVX-512
+- **CUDA Toolkit:** 12.0+ (for GPU kernel development)
+- **Build Tools:** CMake 3.20+ and `pybind11`
 
-Tests for this component should cover:
+### Building from Source
+1. Fork the repository and clone it locally:
+   ```bash
+   git clone https://github.com/<your-username>/pygo.git
+   cd pygo
+   ```
+2. Build the C++/CUDA backend and `pybind11` extensions:
+   ```bash
+   mkdir -p build && cd build
+   cmake .. -DUSE_CUDA=ON
+   make -j\$(nproc)
+   cd ..
+   ```
+3. Verify the Go and CGo bindings:
+   ```bash
+   CGO_ENABLED=1 go test ./...
+   ```
 
-1. normal valid inputs;
-2. empty and boundary inputs;
-3. invalid shapes, dtypes, and devices;
-4. ownership and lifetime rules where buffers are involved;
-5. numerical correctness against a trusted reference; and
-6. backend-specific behavior when the required compiler or hardware is available.
+## Pull Request Process
 
-For repository-wide verification, run `ctest --test-dir build --output-on-failure` and the relevant Python or Go test command from the repository root.
+1. **Create a Branch:** Use a descriptive branch name (e.g., `feat/cgo-tensor-pool` or `fix/cuda-flash-attn`).
+2. **Code Formatting:**
+   - Run `gofmt -s -w .` for Go files.
+   - Format Python code with `black` or `ruff`.
+   - Format C++/CUDA files using `clang-format`.
+3. **Tests & Benchmarks:** Include unit tests for any new operators or layers. If modifying the CGo bridge or CUDA kernels, include before-and-after latency/throughput benchmarks.
+4. **Submit PR:** Open a pull request against `main` with a clear summary of the problem solved, architectural impact, and benchmark results.
 
-## Production notes
+## Communication & Support
 
-This directory is part of the PyGo source distribution. Production status is determined by the tests and build configuration for the specific feature, not by the existence of a source file or device enum. Unsupported optional features should return a clear error instead of producing incorrect results.
-
-## Documentation rule
-
-Keep this README synchronized with the actual files and build behavior. If an API, backend, or file is removed, update the inventory and usage instructions in the same change.
+- Open a GitHub Issue to discuss major architectural changes or report bugs before writing large amounts of code.
+- Check existing issues labeled `good first issue` or `help wanted` to get started.
