@@ -6,7 +6,7 @@
 // not required as user-facing programming languages.
 package pygo
 
-import "github.com/pygo/tensor"
+import "github.com/Sarkar-Labs/pygo/go/tensor"
 
 // Re-export the core tensor types so small programs can use PyGo without
 // importing an implementation subpackage.
@@ -46,16 +46,23 @@ var (
 	DevMPS = tensor.DevMPS
 )
 
-func DevCUDA(index int) Device                  { return tensor.DevCUDA(index) }
+func DevCUDA(index int) Device                   { return tensor.DevCUDA(index) }
 func Zeros(shape Shape, opts ...Option) *Tensor { return tensor.Zeros(shape, opts...) }
 func Ones(shape Shape, opts ...Option) *Tensor  { return tensor.Ones(shape, opts...) }
 func Randn(shape Shape, opts ...Option) *Tensor { return tensor.Randn(shape, opts...) }
+
 func Arange(start, stop, step float64, opts ...Option) *Tensor {
 	return tensor.Arange(start, stop, step, opts...)
 }
-func FromSlice[T float32 | float64 | int32 | int64 | uint8](values []T, shape Shape, opts ...Option) *Tensor {
+
+func FromSlice[T float32 | float64 | int32 | int64 | uint8](
+	values []T,
+	shape Shape,
+	opts ...Option,
+) *Tensor {
 	return tensor.FromSlice(values, shape, opts...)
 }
+
 func WithDType(dt DType) Option  { return tensor.WithDType(dt) }
 func WithDevice(d Device) Option { return tensor.WithDevice(d) }
 func OnCPU() Option              { return tensor.OnCPU() }
