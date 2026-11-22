@@ -13,6 +13,6 @@ setup(
     package_dir={"pygo": "python"},
     packages=packages,
     include_package_data=True,
-    python_requires=">=3.9",
+    python_requires=">=3.13",
     install_requires=["numpy>=1.24"],
 )
