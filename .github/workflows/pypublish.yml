@@ -7,10 +7,7 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-strategy:
-  matrix:
-      python-version: ["3.11", "3.12", "3.13"]
-    environment: pypi
+    environment:
       name: pypi
       url: https://pypi.org
     permissions:
@@ -32,3 +29,4 @@ strategy:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        
