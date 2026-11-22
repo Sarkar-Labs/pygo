@@ -7,7 +7,7 @@ name = "pygo"
 version = "0.1.0"
 description = "PyGo production tensor and deep-learning runtime"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.13"
 license = "MIT"
 dependencies = ["numpy>=1.24"]
 
