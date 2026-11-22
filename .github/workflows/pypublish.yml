@@ -7,7 +7,10 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    environment:
+strategy:
+  matrix:
+      python-version: ["3.11", "3.12", "3.13"]
+    environment: pypi
       name: pypi
       url: https://pypi.org
     permissions:
