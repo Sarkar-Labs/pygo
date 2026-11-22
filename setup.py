@@ -5,7 +5,7 @@ root = Path(__file__).parent
 subpackages = find_packages("python")
 packages = ["pygo"] + ["pygo." + p for p in subpackages]
 setup(
-    name="pygo",
+    name="pygo-python",
     version=(root / "VERSION").read_text().strip(),
     description="PyGo production tensor and deep-learning runtime",
     long_description=(root / "README.md").read_text(encoding="utf-8"),
