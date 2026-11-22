@@ -84,7 +84,7 @@ Zero-copy access across boundaries is enforced through explicit storage lifetime
 ### 1. Build the Native C++ Runtime (CPU)
 
 ```bash
-git clone https://github.com
+git clone https://github.com/Sarkar-Labs/pygo.git
 cd pygo
 
 cmake -S . -B build \
@@ -100,7 +100,7 @@ ctest --test-dir build --output-on-failure
 ### 2. Install the Python Package
 
 ```bash
-python -m pip install -e .
+python -m pip install pygo-python -e .
 python -m pytest tests/python -q
 ```
 
