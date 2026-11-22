@@ -6,7 +6,7 @@ For the CPU development path:
 
 - CMake 3.20 or newer
 - C++17 compiler
-- Python 3.9 or newer
+- Python 3.13 or newer
 - Go 1.22 or newer
 - NumPy 1.24 or newer for the Python package
 
