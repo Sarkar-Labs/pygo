@@ -90,7 +90,7 @@ ctest --test-dir build --output-on-failure
 ### Python environment
 
 ```bash
-python -m pip install -e .
+python -m pip install pygo-python -e .
 python -m pytest tests/python -q
 ```
 
